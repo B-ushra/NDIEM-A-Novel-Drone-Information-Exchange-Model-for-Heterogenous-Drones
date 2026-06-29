@@ -1,0 +1,240 @@
+import json
+import xml.etree.ElementTree as ET
+from datetime import datetime
+
+# ==========================================
+# INPUT / OUTPUT FILES
+# ==========================================
+
+INPUT_JSON = "hexacopter_raw_telemetry_1000.json"
+OUTPUT_XML = "ndem_output.xml"
+
+# ==========================================
+# LOAD RAW MAVLINK DATA
+# ==========================================
+
+with open(INPUT_JSON, "r", encoding="utf-8") as f:
+    dataset = json.load(f)
+
+# ==========================================
+# CREATE XML ROOT
+# ==========================================
+
+root = ET.Element("NDEMDataSet")
+
+converted_count = 0
+
+# ==========================================
+# CONVERT EACH MAVLINK MESSAGE
+# ==========================================
+
+for record in dataset:
+
+    msg_type = record.get("message_type", "UNKNOWN")
+    telemetry = record.get("telemetry", {})
+
+    packet = ET.SubElement(root, "NDEMRecord")
+
+    ET.SubElement(packet, "SchemaVersion").text = "NDEM-1.0"
+    ET.SubElement(packet, "SourceProtocol").text = "MAVLINK"
+    ET.SubElement(packet, "MessageType").text = msg_type
+
+    capture_time = record.get("capture_time")
+    ET.SubElement(packet, "CaptureTime").text = str(capture_time)
+
+    # ======================================
+    # ATTITUDE
+    # ======================================
+
+    if msg_type == "ATTITUDE":
+
+        ET.SubElement(
+            packet,
+            "OrientationRollValue"
+        ).text = str(telemetry.get("roll"))
+
+        ET.SubElement(
+            packet,
+            "OrientationPitchValue"
+        ).text = str(telemetry.get("pitch"))
+
+        ET.SubElement(
+            packet,
+            "OrientationYawValue"
+        ).text = str(telemetry.get("yaw"))
+
+    # ======================================
+    # LOCAL_POSITION_NED
+    # ======================================
+
+    elif msg_type == "LOCAL_POSITION_NED":
+
+        ET.SubElement(
+            packet,
+            "PositionX"
+        ).text = str(telemetry.get("x"))
+
+        ET.SubElement(
+            packet,
+            "PositionY"
+        ).text = str(telemetry.get("y"))
+
+        ET.SubElement(
+            packet,
+            "PositionZ"
+        ).text = str(telemetry.get("z"))
+
+        ET.SubElement(
+            packet,
+            "SpeedVelocityX"
+        ).text = str(telemetry.get("vx"))
+
+        ET.SubElement(
+            packet,
+            "SpeedVelocityY"
+        ).text = str(telemetry.get("vy"))
+
+        ET.SubElement(
+            packet,
+            "SpeedVelocityZ"
+        ).text = str(telemetry.get("vz"))
+
+    # ======================================
+    # BATTERY_STATUS
+    # ======================================
+
+    elif msg_type == "BATTERY_STATUS":
+
+        ET.SubElement(
+            packet,
+            "BatteryChargePercent"
+        ).text = str(telemetry.get("battery_remaining"))
+
+        voltages = telemetry.get("voltages")
+
+        if voltages:
+            ET.SubElement(
+                packet,
+                "BatteryVoltage"
+            ).text = str(voltages[0])
+
+    # ======================================
+    # HIGHRES_IMU
+    # ======================================
+
+    elif msg_type == "HIGHRES_IMU":
+
+        ET.SubElement(
+            packet,
+            "AccelerationX"
+        ).text = str(telemetry.get("xacc"))
+
+        ET.SubElement(
+            packet,
+            "AccelerationY"
+        ).text = str(telemetry.get("yacc"))
+
+        ET.SubElement(
+            packet,
+            "AccelerationZ"
+        ).text = str(telemetry.get("zacc"))
+
+        ET.SubElement(
+            packet,
+            "GyroscopeX"
+        ).text = str(telemetry.get("xgyro"))
+
+        ET.SubElement(
+            packet,
+            "GyroscopeY"
+        ).text = str(telemetry.get("ygyro"))
+
+        ET.SubElement(
+            packet,
+            "GyroscopeZ"
+        ).text = str(telemetry.get("zgyro"))
+
+    # ======================================
+    # ALTITUDE
+    # ======================================
+
+    elif msg_type == "ALTITUDE":
+
+        ET.SubElement(
+            packet,
+            "LocationAltitudeValue"
+        ).text = str(telemetry.get("altitude_amsl"))
+
+    # ======================================
+    # SCALED_PRESSURE
+    # ======================================
+
+    elif msg_type == "SCALED_PRESSURE":
+
+        ET.SubElement(
+            packet,
+            "BarometricPressureValue"
+        ).text = str(telemetry.get("press_abs"))
+
+        ET.SubElement(
+            packet,
+            "AmbientTemperatureValue"
+        ).text = str(telemetry.get("temperature"))
+
+    # ======================================
+    # SYS_STATUS
+    # ======================================
+
+    elif msg_type == "SYS_STATUS":
+
+        ET.SubElement(
+            packet,
+            "BatteryVoltage"
+        ).text = str(telemetry.get("voltage_battery"))
+
+        ET.SubElement(
+            packet,
+            "CurrentBattery"
+        ).text = str(telemetry.get("current_battery"))
+
+    # ======================================
+    # VFR_HUD
+    # ======================================
+
+    elif msg_type == "VFR_HUD":
+
+        ET.SubElement(
+            packet,
+            "GroundSpeed"
+        ).text = str(telemetry.get("groundspeed"))
+
+        ET.SubElement(
+            packet,
+            "Heading"
+        ).text = str(telemetry.get("heading"))
+
+        ET.SubElement(
+            packet,
+            "ClimbRate"
+        ).text = str(telemetry.get("climb"))
+
+    converted_count += 1
+
+# ==========================================
+# SAVE XML
+# ==========================================
+
+tree = ET.ElementTree(root)
+
+tree.write(
+    OUTPUT_XML,
+    encoding="utf-8",
+    xml_declaration=True
+)
+
+print("=" * 50)
+print("NDEM CONVERSION COMPLETE")
+print("=" * 50)
+print(f"Input records : {len(dataset)}")
+print(f"Converted     : {converted_count}")
+print(f"Output file   : {OUTPUT_XML}")
